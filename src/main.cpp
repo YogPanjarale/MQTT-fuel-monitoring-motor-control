@@ -1,5 +1,7 @@
 #define SIM800L_AXP192_VERSION_20200327
 #include <Arduino.h>
+#include "max6675.h"
+
 #include <pindef.h>
 #include <SimpleTimer.h>
 #include <details.h>
@@ -35,6 +37,7 @@ TinyGsm modem(SerialAT);
 #endif
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
+MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 int ledStatus = LOW;
 
@@ -70,7 +73,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
         SerialMon.print("Relay 2: ");
         SerialMon.println(value);
         if (value == "1"||value=="0"){
-            digitalWrite(RELAY2,value=="0"?LOW:HIGH);
+            // digitalWrite(RELAY2,value=="0"?LOW:HIGH);
         }
     }
 }
@@ -134,7 +137,16 @@ void updateVoltage(){
   V1 = Vm * (R2/(R1+R2))
   */
 }
-
+void updateThermocouple(){
+    double temperature= thermocouple.readCelsius();
+  SerialMon.printf("Temperature computed : %f \n",temperature);
+  String str = String(temperature);
+  mqtt.publish(withTopic("/temperature1"), str.c_str());
+}
+void updateMqtt(){
+    updateVoltage();
+    updateThermocouple();
+}
 int p1 = 0, p2 = 0, p3 = 0;
 void ping()
 {
@@ -210,10 +222,10 @@ void setup()
     SerialMon.begin(115200);
     //setting pin mappings
     pinMode(RELAY1, OUTPUT);
-    pinMode(RELAY2, OUTPUT);
+    // pinMode(RELAY2, OUTPUT);
     pinMode(BATTERYREF, INPUT);
     digitalWrite(RELAY1, LOW);
-    digitalWrite(RELAY2, LOW);
+    // digitalWrite(RELAY2, LOW);
     delay(10);
     setupModem();
     SerialMon.println("Wait...");
@@ -226,7 +238,7 @@ void setup()
     mqtt.setCallback(mqttCallback);
     //timers
     pingTimer.setInterval(5000, ping);
-    pingTimer.setInterval(30000, updateVoltage);
+    pingTimer.setInterval(30000, updateMqtt);
 }
 
 void loop()
