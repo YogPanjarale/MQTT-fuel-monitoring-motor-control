@@ -135,9 +135,12 @@ void updateVoltage()
 void updateThermocouple()
 {
     double temperature = thermocouple.readCelsius();
+    if (isnan(temperature)){
+        temperature = 0.0;
+    }
     SerialMon.printf("Temperature computed : %f \n", temperature);
     String str = String(temperature);
-    mqtt.publish(withTopic("/temperature1"), str.c_str());
+    mqtt.publish(withTopic("/temperature1"),str.c_str());
 }
 void updateWaterSensor()
 {
