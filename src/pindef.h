@@ -19,14 +19,14 @@ pins refrence https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
     .
     .
 */
-const uint8_t RELAY1 = 33;
+const uint8_t RELAY1 = 32;
 // const uint8_t  RELAY2 =  33;
 
 const uint8_t BATTERYREF  = 34;
 
 const uint8_t thermoDO = 25;
 const uint8_t thermoCS = 26;
-const uint8_t thermoCLK = 27;
-const uint8_t waterSensor = 32;
+const uint8_t thermoCLK = 33;
+const uint8_t waterSensor = 25;
 const uint8_t rpmSensor = 14;
 #endif

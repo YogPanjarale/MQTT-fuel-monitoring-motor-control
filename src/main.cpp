@@ -24,8 +24,8 @@ const char *topicInit = "/init";
 const char *topicPing = "/ping";
 const char *topicLedStatus = "/ledStatus";
 const char *topicBattery = "/battery";
-const char *topicRelay1 = "/relay1";
-const char *topicRelay2 = "/relay2";
+const char *topicRelay1 = "/cell";
+// const char *topicRelay2 = "/relay2";
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 #ifdef DUMP_AT_COMMANDS
@@ -38,6 +38,7 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+// int waterSensor = 32;
 
 int ledStatus = LOW;
 
@@ -58,22 +59,15 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
         digitalWrite(13, ledStatus);
         mqtt.publish(withTopic(topicLedStatus), ledStatus ? "1" : "0");
     }
-    if (String(topic) == withTopic(topicRelay1)){
-        String value = (char* )payload;
+    if (String(topic) == withTopic(topicRelay1))
+    {
+        String value = (char *)payload;
         value = value.charAt(0);
         SerialMon.print("Relay 1: ");
         SerialMon.println(value);
-        if (value == "1"||value=="0"){
-            digitalWrite(RELAY1,value=="0"?LOW:HIGH);
-        }
-    }
-    if (String(topic) == withTopic(topicRelay2)){
-        String value = (char* )payload;
-        value = value.charAt(0);
-        SerialMon.print("Relay 2: ");
-        SerialMon.println(value);
-        if (value == "1"||value=="0"){
-            // digitalWrite(RELAY2,value=="0"?LOW:HIGH);
+        if (value == "1" || value == "0")
+        {
+            digitalWrite(RELAY1, value == "0" ? LOW : HIGH);
         }
     }
 }
@@ -95,39 +89,40 @@ boolean mqttConnect()
     }
     SerialMon.println(" success");
     mqtt.publish(withTopic(topicInit), "Online");
-    
+
     mqtt.subscribe(withTopic(topicRelay1));
-    mqtt.subscribe(withTopic(topicRelay2));
     // mqtt.unsubscribe(withTopic(topicPing));
     return mqtt.connected();
 }
-float voltage=0.0;
-float getVoltage(){
-  int read = analogRead(BATTERYREF);
-  float R1=5.37;
-  float R2 = 2.02;
-  float voltage = read * (3.6/4095) * ((R1 + R2)/R2);
-  return voltage;
+float voltage = 0.0;
+float getVoltage()
+{
+    int read = analogRead(BATTERYREF);
+    float R1 = 5.37;
+    float R2 = 2.02;
+    float voltage = read * (3.6 / 4095) * ((R1 + R2) / R2);
+    return voltage;
 }
-void updateVoltage(){
-  // analogReadResolution(16);
-  voltage=0.0;
-  float times = 100.0;
-  for (size_t i = 0; i < times; i++)
-  {
-    float read=getVoltage();
-    voltage=read+voltage;
-      // SerialMon.printf("Read %u: %f \n",i,read);
-  }
-  //finding the volatge in float with many decimals
-  voltage = voltage/times;
-  //rounding it to 1 decimal
-  voltage= (float)((int)(voltage*100))/100;
-  SerialMon.printf("Battery Voltage computed : %f \n",voltage);
-  String str = String(voltage);
-  mqtt.publish(withTopic(topicBattery), str.c_str());
-//   Blynk.virtualWrite(V10,str);
-  /*
+void updateVoltage()
+{
+    // analogReadResolution(16);
+    voltage = 0.0;
+    float times = 100.0;
+    for (size_t i = 0; i < times; i++)
+    {
+        float read = getVoltage();
+        voltage = read + voltage;
+        // SerialMon.printf("Read %u: %f \n",i,read);
+    }
+    //finding the volatge in float with many decimals
+    voltage = voltage / times;
+    //rounding it to 1 decimal
+    voltage = (float)((int)(voltage * 100)) / 100;
+    SerialMon.printf("Battery Voltage computed : %f \n", voltage);
+    String str = String(voltage);
+    mqtt.publish(withTopic(topicBattery), str.c_str());
+    //   Blynk.virtualWrite(V10,str);
+    /*
   +ve input
   R1 = 6.8k
   output->
@@ -137,15 +132,46 @@ void updateVoltage(){
   V1 = Vm * (R2/(R1+R2))
   */
 }
-void updateThermocouple(){
-    double temperature= thermocouple.readCelsius();
-  SerialMon.printf("Temperature computed : %f \n",temperature);
-  String str = String(temperature);
-  mqtt.publish(withTopic("/temperature1"), str.c_str());
+void updateThermocouple()
+{
+    double temperature = thermocouple.readCelsius();
+    SerialMon.printf("Temperature computed : %f \n", temperature);
+    String str = String(temperature);
+    mqtt.publish(withTopic("/temperature1"), str.c_str());
 }
-void updateMqtt(){
+void updateWaterSensor()
+{
+    int val = digitalRead(waterSensor)==0?1:0;
+    SerialMon.printf("Water Sensor computed : %u \n", val);
+    String str = String(val);
+    mqtt.publish(withTopic("/water"), str.c_str());
+}
+void updateRpm()
+{
+     int i, j;
+  unsigned int count = 0;
+  for (i = 0; i < 1000; i++)
+  {
+    for (j = 0; j < 1000; j++)
+    {
+      if (digitalRead(rpmSensor))
+      {
+        count++;
+        while (digitalRead(rpmSensor))
+          ;
+      }
+    }
+  }
+    SerialMon.printf("RPM computed : %u \n", count);
+    String str = String(count);
+    mqtt.publish(withTopic("/rpm"), str.c_str());
+}
+void updateMqtt()
+{
     updateVoltage();
     updateThermocouple();
+    updateWaterSensor();
+    updateRpm();
 }
 int p1 = 0, p2 = 0, p3 = 0;
 void ping()
@@ -160,16 +186,16 @@ void ping()
         val = String(p3) + "," + val;
     }
     mqtt.publish(withTopic(topicPing), val.c_str());
-    p1+=5;
+    p1 += 5;
     if (p1 >= 1000)
     {
         p1 = 0;
-        p2+=5;
+        p2 += 5;
     }
     if (p2 >= 1000)
     {
         p2 = 0;
-        p3+=5;
+        p3 += 5;
     }
 }
 void setupGPRS()
@@ -224,6 +250,8 @@ void setup()
     pinMode(RELAY1, OUTPUT);
     // pinMode(RELAY2, OUTPUT);
     pinMode(BATTERYREF, INPUT);
+    pinMode(waterSensor, INPUT_PULLUP);
+
     digitalWrite(RELAY1, LOW);
     // digitalWrite(RELAY2, LOW);
     delay(10);
@@ -237,8 +265,8 @@ void setup()
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
     mqtt.setCallback(mqttCallback);
     //timers
-    pingTimer.setInterval(5000, ping);
-    pingTimer.setInterval(30000, updateMqtt);
+    pingTimer.setInterval(1000, ping);
+    pingTimer.setInterval(5000, updateMqtt);
 }
 
 void loop()

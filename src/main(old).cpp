@@ -5,7 +5,7 @@
 int thermoDO = 25;
 int thermoCS = 26;
 int thermoCLK = 27;
-int waterSensor = 32;
+// int waterSensor = 32;
 int rpmSensor = 14;
 MAX6675 thermocouple1(thermoCLK, thermoCS, thermoDO);
 int delay1()
@@ -31,7 +31,7 @@ void setup1()
 {
   Serial.begin(9600);
 
-  pinMode(waterSensor, INPUT);
+  // pinMode(waterSensor, INPUT);
   // wait for MAX chip to stabilize
   delay(500);
 }
@@ -46,7 +46,7 @@ unsigned int time=0,RPM=0;
   Serial.print("F = ");
   Serial.println(thermocouple1.readFahrenheit());
   // Read water sensor value
-  Serial.printf("Water sensor : %s\n", digitalRead(waterSensor) == HIGH ? "Off" : "On");
+  // Serial.printf("Water sensor : %s\n", digitalRead(waterSensor) == HIGH ? "Off" : "On");
 time=delay1();
 
 RPM=(time*12)/3;
